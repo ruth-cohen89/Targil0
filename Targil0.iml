@@ -1,0 +1,425 @@
+#sara trop weinroth 208825422
+#yael kraytenberger 318505195
+
+
+create table ex1
+count  := 1
+ex1.main := proc() is
+
+	pathDir:= io.read()
+	nameOfTest:=io.read()
+	#directories:=pathDir split '\'
+	#len:=size(directories)
+	#nameOfTest:=directories[len]
+	 
+local AllFiles:= os.list(pathDir, 'files')
+	local WriteFile := io.open(pathDir &'\' & nameOfTest &'.asm', 'w')
+	
+	
+	for name in AllFiles
+	do
+	if '.vm' atendof name  <> null
+	then
+
+		file := name[1 to -4]
+		local readFile := io.open(pathDir & '\' & name, 'r')
+		
+		
+		for line in io.readlines(readFile)
+		do
+			#dividing by spaces
+			local words := line split ' '
+			
+			if '//' = line[1 to 2] then
+				print(line)
+			elif '' = line then
+				print('Empty line')
+			elif 'add' in line then
+				ex1.add(WriteFile)
+			elif 'sub' in line then
+				ex1.sub(WriteFile)
+			elif 'neg' in line then
+				ex1.neg(WriteFile)
+			elif 'eq' in line then
+				ex1.eq(WriteFile, file)
+			elif 'gt' in line then
+				ex1.gt(WriteFile, file)
+			elif 'lt' in line then
+				ex1.lt(WriteFile, file)
+			elif 'and' in line then
+				ex1.and1(WriteFile)
+			elif 'or' in line then
+				ex1.or1(WriteFile)
+			elif 'not' in line then
+				ex1.not1(WriteFile)
+			elif 'pop' in line then
+				numS := instr(line, '%d')
+				num := tonumber(line[numS to -1])
+				
+				if 'argument' in line then
+					ex1.popArg(WriteFile, num)
+				elif 'local' in line then
+					ex1.popLcl(WriteFile, num)
+				elif 'static' in line then
+					ex1.popStatic(WriteFile, file, num)
+				elif 'this' in line then
+					ex1.popThis(WriteFile, num)
+				elif 'that' in line then
+					ex1.popThat(WriteFile, num)
+				elif 'pointer' in line then
+					ex1.popPointer(WriteFile, num)
+				elif 'temp' in line then
+					ex1.popTemp(WriteFile, num)
+				else
+					io.writeline(WriteFile, 'Error push: ' & line)
+				fi
+				
+				elif 'push' in line then
+				numStart := instr(line, '%d')
+				num := tonumber(line[numStart to -1])
+				
+				if 'argument' in line then
+					ex1.pushArg(WriteFile, num)
+				elif 'local' in line then
+					ex1.pushLcl(WriteFile, num)
+				elif 'static' in line then
+					ex1.pushStatic(WriteFile, file, num)
+				elif 'constant' in line then
+					ex1.pushConst(WriteFile, num)
+				elif 'this' in line then
+					ex1.pushThis(WriteFile, num)
+				elif 'that' in line then
+					ex1.pushThat(WriteFile, num)
+				elif 'pointer' in line then
+					ex1.pushPointer(WriteFile, num)	
+				elif 'temp' in line then
+					ex1.pushTemp(WriteFile, num)
+				else
+					io.writeline(WriteFile, 'Error pop: ' & line)
+				fi
+				
+			else
+				io.writeline(WriteFile, 'Error: ' & line)
+			fi
+		od
+io.close( readFile)
+	fi
+		
+	od
+
+io.close( WriteFile)
+end
+
+
+ex1.add:= proc(WriteFile) is
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'M=M-1')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'M=M+D')
+end	
+
+ex1.sub:= proc(WriteFile) is
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'M=M-1')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'M=M-D')
+end
+
+ex1.neg := proc(WriteFile) is
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'M=-M')
+end
+	
+ex1.eq := proc(WriteFile, file) is
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'M=M-1')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'D=D-M')
+	io.writeline(WriteFile,'@EQ_TRUE' & count)
+	io.writeline(WriteFile,'D;JEQ')
+	io.writeline(WriteFile,'0')
+	io.writeline(WriteFile,'D=A')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'M=D')
+	io.writeline(WriteFile,'@EQ_FALSE' & count)
+	io.writeline(WriteFile,'0;JMP')
+	io.writeline(WriteFile,'(EQ_TRUE' & count & ')')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'M=D-1')
+	io.writeline(WriteFile,'(EQ_FALSE' & count & ')')
+	inc(count)
+end
+
+ex1.gt := proc(WriteFile, file) is
+	ex1.sub(WriteFile)
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@IF_TRUE' & file & count)
+	inc(count)
+	io.writeline(WriteFile,'D;JGT')
+	io.writeline(WriteFile,'@0')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'A=A-1')
+	io.writeline(WriteFile,'M=0')
+	io.writeline(WriteFile,'@END' & file &count)
+	inc(count)
+	io.writeline(WriteFile,'D;JMP')
+	io.writeline(WriteFile,'(IF_TRUE' & file & count-2 & ')')
+	io.writeline(WriteFile,'@0')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'A=A-1')
+	io.writeline(WriteFile,'M=-1')
+	io.writeline(WriteFile,'(END' & file & count-1 & ')')
+end
+
+ex1.lt := proc(WriteFile, file) is
+	ex1.sub(WriteFile)
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@IF_TRUE' & file & count)
+	inc(count)
+	io.writeline(WriteFile,'D;JLT')
+	io.writeline(WriteFile,'@0')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'A=A-1')
+	io.writeline(WriteFile,'M=0')
+	io.writeline(WriteFile,'@END' & file & count)
+	inc(count)
+	io.writeline(WriteFile,'D;JMP')
+	io.writeline(WriteFile,'(IF_TRUE' & file & count-2 & ')')
+	io.writeline(WriteFile,'@0')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'A=A-1')
+	io.writeline(WriteFile,'M=-1')
+	io.writeline(WriteFile,'(END' & file & count-1 & ')')
+end
+
+ex1.and1 := proc(WriteFile) is
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'M=M-1')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'M=M&D')
+end
+
+ex1.or1 := proc(WriteFile) is
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'M=M-1')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'M=M|D')
+end
+
+ex1.not1 := proc(WriteFile) is
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'M=!M')
+end
+
+ex1.popArg :=proc(WriteFile,num) is
+	io.writeline(WriteFile,'@ARG')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'D=A+D')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M-1')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'D=D+A')
+	io.writeline(WriteFile,'A=D-A')
+	io.writeline(WriteFile,'D=D-A')
+	io.writeline(WriteFile,'M=D')
+end
+
+ex1.popLcl := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@LCL')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'D=A')
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'D=D+A')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M-1')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'D=D+A')
+	io.writeline(WriteFile,'A=D-A')
+	io.writeline(WriteFile,'D=D-A')
+	io.writeline(WriteFile,'M=D')
+end		
+
+ex1.popStatic := proc(WriteFile, file, num) is
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M-1')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@' & file & '.' & num)
+	io.writeline(WriteFile,'M=D')
+end
+
+ex1.popThis := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@THIS')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'D=A')
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'D=D+A')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M-1')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'D=D+A')
+	io.writeline(WriteFile,'A=D-A')
+	io.writeline(WriteFile,'D=D-A')
+	io.writeline(WriteFile,'M=D')
+end
+
+ex1.popThat := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@THAT')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'D=A')
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'D=D+A')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M-1')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'D=D+A')
+	io.writeline(WriteFile,'A=D-A')
+	io.writeline(WriteFile,'D=D-A')
+	io.writeline(WriteFile,'M=D')
+end
+
+ex1.popPointer := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@3')
+	io.writeline(WriteFile,'D=A')
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'D=D+A')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M-1')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'D=D+A')
+	io.writeline(WriteFile,'A=D-A')
+	io.writeline(WriteFile,'D=D-A')
+	io.writeline(WriteFile,'M=D')
+end
+
+ex1.popTemp := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@5')	io.writeline(WriteFile,'D=A')
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'D=D+A')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M-1')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'D=D+A')
+	io.writeline(WriteFile,'A=D-A')
+	io.writeline(WriteFile,'D=D-A')
+	io.writeline(WriteFile,'M=D')		
+end
+
+ex1.pushArg := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@ARG')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'A=A+D')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M+1')
+	io.writeline(WriteFile,'A=A-1')
+	io.writeline(WriteFile,'M=D')
+end
+
+ex1.pushLcl := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@LCL')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'A=D+A')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M+1')
+	io.writeline(WriteFile,'A=A-1')
+	io.writeline(WriteFile,'M=D')
+end
+
+ex1.pushStatic := proc(WriteFile, file, num) is
+	io.writeline(WriteFile,'@' & file & '.' & num)
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile, '@SP')
+	io.writeline(WriteFile,'AM=M+1')
+	io.writeline(WriteFile,'A=A-1')
+	io.writeline(WriteFile,'M=D')		
+end
+
+ex1.pushConst := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'D=A')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'M=M+1')
+	io.writeline(WriteFile,'A=M-1')
+	io.writeline(WriteFile,'M=D')
+end
+
+ex1.pushThis := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@THIS')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'A=A+D')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M+1')
+	io.writeline(WriteFile,'A=A-1')
+	io.writeline(WriteFile,'M=D')
+end
+
+ex1.pushThat := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@THAT')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'A=A+D')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M+1')
+	io.writeline(WriteFile,'A=A-1')
+	io.writeline(WriteFile,'M=D')
+end
+
+ex1.pushPointer := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@3')
+	io.writeline(WriteFile,'D=A')
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'A=A+D')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'AM=M+1')
+	io.writeline(WriteFile,'A=A-1')
+	io.writeline(WriteFile,'M=D')	
+end
+
+ex1.pushTemp := proc(WriteFile, num) is
+	io.writeline(WriteFile,'@' & num)
+	io.writeline(WriteFile,'D=A')
+	io.writeline(WriteFile,'@5')
+	io.writeline(WriteFile,'A=A+D')
+	io.writeline(WriteFile,'D=M')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'A=M')
+	io.writeline(WriteFile,'M=D')
+	io.writeline(WriteFile,'@SP')
+	io.writeline(WriteFile,'M=M+1')		
+	
+end
+
+
+
+
+
+ex1.main ()
